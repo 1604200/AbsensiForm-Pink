@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lembar Absensi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    .camera-panel,
+    .filter-panel {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .camera-card,
+    .control-card,
+    .filter-card,
+    .json-preview,
+    .table-container,
+    .toolbar {
+      background: rgba(255,255,255,0.24);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(72, 45, 58, 0.1);
+      backdrop-filter: blur(6px);
+    }
+
+    .camera-card,
+    .control-card,
+    .filter-card,
+    .json-preview {
+      padding: 20px;
+    }
+
+    .camera-card h3,
+    .control-card h3,
+    .filter-card h3,
+    .json-header h3 {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 2rem;
+      color: #344b20;
+      margin-bottom: 14px;
+    }
+
+    .camera-wrap {
+      position: relative;
+      width: 100%;
+      min-height: 320px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #1f1f1f;
+      border: 2px solid rgba(52, 75, 32, 0.08);
+    }
+
+    #cameraVideo,
+    #captureCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+      background: #111;
+    }
+
+    #captureCanvas {
+      display: none;
+    }
+
+    .scan-frame {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: min(78%, 360px);
+      height: 220px;
+      transform: translate(-50%, -50%);
+      border: 3px solid rgba(255,255,255,0.95);
+      border-radius: 20px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.16);
+      pointer-events: none;
+    }
+
+    .scan-frame::before,
+    .scan-frame::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      background: rgba(255, 90, 90, 0.9);
+      box-shadow: 0 0 12px rgba(255, 70, 70, 0.65);
+      animation: scanLine 2.5s linear infinite;
+    }
+
+    .scan-frame::after {
+      animation-delay: 1.25s;
+      opacity: 0.45;
+    }
+
+    @keyframes scanLine {
+      0% { top: 14px; }
+      50% { top: calc(100% - 14px); }
+      100% { top: 14px; }
+    }
+
+    .camera-actions,
+    .form-group-actions,
+    .toolbar-left,
+    .toolbar-right,
+    .json-header {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .camera-status {
+      margin-top: 12px;
+      min-height: 24px;
+      color: rgba(52, 75, 32, 0.85);
+      line-height: 1.5;
+      font-size: 0.92rem;
+    }
+
+    .scan-result-box {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(52, 75, 32, 0.08);
+    }
+
+    .scan-result-box p {
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .scan-result-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    .scan-id-value {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(52, 75, 32, 0.95);
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .hidden-canvas {
+      display: none !important;
+    }
+
+    .form-grid,
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .form-group,
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label,
+    .filter-group label {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: rgba(52, 75, 32, 0.88);
+    }
+
+    .form-group input,
+    .form-group select,
+    .filter-group input,
+    .filter-group select {
+      width: 100%;
+      padding: 14px 14px;
+      border: 1px solid rgba(52, 75, 32, 0.14);
+      border-radius: 14px;
+      outline: none;
+      background: rgba(255, 255, 255, 0.86);
+      color: #374128;
+      transition: border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .filter-group input:focus,
+    .filter-group select:focus {
+      border-color: rgba(52, 75, 32, 0.4);
+      box-shadow: 0 0 0 4px rgba(52, 75, 32, 0.08);
+    }
+
+    .form-group-full,
+    .filter-group-full {
+      grid-column: 1 / -1;
+    }
+
+    .badge-info {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(52, 75, 32, 0.08);
+      font-size: 0.88rem;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .table-container {
+      padding: 16px;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      border-radius: 18px;
+    }
+
+    .office-table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      background: rgba(255,255,255,0.88);
+    }
+
+    .office-table th,
+    .office-table td {
+      border: 2px solid rgba(34, 34, 34, 0.9);
+      text-align: center;
+      padding: 14px 10px;
+      vertical-align: middle;
+    }
+
+    .office-table thead th {
+      background: linear-gradient(180deg, #d9788e, #c8657c);
+      color: #1f1719;
+      font-family: "Cormorant Garamond", serif;
+      font-size: 1.18rem;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+    }
+
+    .office-table tbody td {
+      background: rgba(248, 244, 246, 0.92);
+      font-size: 0.94rem;
+    }
+
+    .office-table tbody tr {
+      transition: transform 0.35s ease, background 0.35s ease;
+    }
+
+    .office-table tbody tr:hover {
+      transform: scale(1.003);
+    }
+
+    .empty-row td {
+      padding: 26px 14px;
+      color: rgba(52, 75, 32, 0.72);
+      font-style: italic;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 92px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .status-hadir {
+      background: rgba(71, 167, 98, 0.18);
+      color: #236638;
+    }
+
+    .status-sakit {
+      background: rgba(240, 177, 52, 0.2);
+      color: #8f5a09;
+    }
+
+    .status-alpha {
+      background: rgba(200, 57, 57, 0.18);
+      color: #8a2222;
+    }
+
+    .status-izin {
+      background: rgba(71, 116, 167, 0.18);
+      color: #264d7f;
+    }
+
+    .btn-delete-row {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #b2415b;
+      color: #fff;
+      transition: transform 0.35s ease, opacity 0.35s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-delete-row:hover {
+      transform: translateY(-1px);
+      opacity: 0.94;
+    }
+
+    .json-preview {
+      margin-top: 18px;
+    }
+
+    #jsonOutput {
+      background: #fff;
+      color: #243018;
+      border-radius: 16px;
+      padding: 16px;
+      overflow: auto;
+      max-height: 320px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 0.88rem;
+      border: 1px solid rgba(52, 75, 32, 0.08);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .print-header {
+      display: none;
+    }
+
+    .print-title {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .print-identity {
+      display: none;
+    }
+
+    .print-identity p {
+      margin: 2px 0;
+      font-size: 13px;
+      color: #111;
+      line-height: 1.4;
+    }
+
+    .print-footer {
+      display: none;
+    }
+
+    .print-note {
+      font-size: 0.82rem;
+      color: rgba(52, 75, 32, 0.72);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1080px) {
+      .camera-panel,
+      .filter-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .form-grid,
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar-right .btn-soft,
+      .toolbar-right .btn-enter,
+      .camera-actions .btn-soft,
+      .camera-actions .btn-enter,
+      .form-group-actions .btn-soft,
+      .form-group-actions .btn-enter {
+        width: 100%;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff !important;
+      }
+
+      .page-transition,
+      .camera-panel,
+      .filter-panel,
+      .toolbar,
+      .json-preview,
+      .table-action-col,
+      .btn-delete-row,
+      .corner-dot,
+      .frame-layer,
+      .print-hide {
+        display: none !important;
+      }
+
+      .attendance-wrapper,
+      .attendance-frame,
+      .attendance-content,
+      .table-container,
+      .table-scroll {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        background: #fff !important;
+        border: none !important;
+      }
+
+      .attendance-frame {
+        border-radius: 0 !important;
+      }
+
+      .print-header {
+        display: block !important;
+        margin-bottom: 16px;
+        text-align: left;
+      }
+
+      .print-header h2 {
+        font-family: "Cormorant Garamond", serif;
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #111;
+      }
+
+      .print-header p {
+        font-size: 13px;
+        color: #333;
+      }
+
+      .print-identity {
+        display: block !important;
+        margin-top: 10px;
+        margin-left: 0;
+      }
+
+      .office-table {
+        min-width: 100% !important;
+        width: 100% !important;
+      }
+
+      .office-table th,
+      .office-table td {
+        border: 1px solid #000 !important;
+        color: #000 !important;
+        background: #fff !important;
+        font-size: 11px !important;
+        padding: 8px 6px !important;
+      }
+
+      .office-table thead th {
+        background: #e6e6e6 !important;
+      }
+
+      .status-pill {
+        background: transparent !important;
+        color: #000 !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        min-width: auto !important;
+      }
+
+      .print-footer {
+        display: block !important;
+        margin-top: 10px;
+        text-align: right;
+        font-size: 12px;
+        color: #111;
+      }
+
+      @page {
+        size: A4 landscape;
+        margin: 14mm;
+      }
+    }
+  </style>
+</head>
+<body class="attendance-page">
+  <div class="page-transition"></div>
+
+  <main class="attendance-wrapper">
+    <section class="attendance-frame reveal">
+      <div class="frame-layer frame-outer"></div>
+      <div class="frame-layer frame-middle"></div>
+      <div class="frame-layer frame-inner"></div>
+
+      <div class="attendance-content">
+        <div class="table-head reveal delay-1 print-hide">
+          <h1>Lembar Absensi</h1>
+          <p>Filter data berdasarkan tanggal dan keterangan yang sudah diperbaiki</p>
+        </div>
+
+        <div class="camera-panel reveal delay-2 print-hide">
+          <div class="camera-card">
+            <h3>Scan Kamera ID Card</h3>
+
+            <div class="camera-wrap">
+              <video id="cameraVideo" autoplay playsinline muted></video>
+              <canvas id="captureCanvas" class="hidden-canvas"></canvas>
+              <div class="scan-frame"></div>
+            </div>
+
+            <div class="camera-actions" style="margin-top: 14px;">
+              <button type="button" id="startCameraBtn" class="btn-enter magnetic">Aktifkan Kamera</button>
+              <button type="button" id="scanCameraBtn" class="btn-soft magnetic">Scan ID Card</button>
+              <button type="button" id="stopCameraBtn" class="btn-soft magnetic">Matikan Kamera</button>
+              <button type="button" id="resetScanBtn" class="btn-soft magnetic">Reset Hasil Scan</button>
+            </div>
+
+            <div id="cameraStatus" class="camera-status"></div>
+
+            <div class="scan-result-box">
+              <p><strong>ID Card terdeteksi:</strong></p>
+              <div id="scannedIdPreview" class="scan-id-value">Belum ada hasil scan</div>
+              <p class="print-note">Arahkan kartu ke frame kamera, lalu klik scan. Sistem akan membaca kode seperti PKL 25.</p>
+            </div>
+          </div>
+
+          <div class="control-card">
+            <h3>Input Absensi</h3>
+
+            <form id="attendanceForm" class="form-grid">
+              <div class="form-group form-group-full">
+                <label for="cardCodeDisplay">ID Card aktif</label>
+                <input
+                  type="text"
+                  id="cardCodeDisplay"
+                  placeholder="Hasil scan akan tampil di sini"
+                  readonly
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="studentName">Nama</label>
+                <input type="text" id="studentName" placeholder="Masukkan nama" required />
+              </div>
+
+              <div class="form-group">
+                <label for="studentNim">NIM</label>
+                <input type="text" id="studentNim" placeholder="Masukkan NIM" required />
+              </div>
+
+              <div class="form-group form-group-full">
+                <label for="studentMajor">Jurusan</label>
+                <input type="text" id="studentMajor" placeholder="Masukkan jurusan" required />
+              </div>
+
+              <div class="form-group">
+                <label for="dayNumber">Hari ke-</label>
+                <input
+                  type="number"
+                  id="dayNumber"
+                  min="1"
+                  step="1"
+                  placeholder="Hari ke-"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="attendanceDate">Tanggal</label>
+                <input type="date" id="attendanceDate" required />
+              </div>
+
+              <div class="form-group form-group-full">
+                <label for="attendanceStatus">Keterangan</label>
+                <select id="attendanceStatus" required>
+                  <option value="Hadir">Hadir</option>
+                  <option value="Sakit">Sakit</option>
+                  <option value="Alpha">Alpha</option>
+                  <option value="Izin">Izin</option>
+                </select>
+              </div>
+
+              <div class="form-group form-group-full">
+                <label for="manualCardCode">Atau isi manual ID Card</label>
+                <input
+                  type="text"
+                  id="manualCardCode"
+                  placeholder="Contoh: PKL 25"
+                  autocomplete="off"
+                />
+              </div>
+
+              <div class="form-group form-group-full form-group-actions">
+                <button type="submit" class="btn-enter magnetic">Simpan Data</button>
+                <button
+                  type="button"
+                  id="clearAllBtn"
+                  class="btn-soft magnetic"
+                  style="background:#b2415b;color:#fff;"
+                >
+                  Hapus Semua
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="filter-panel reveal delay-3 print-hide">
+          <div class="filter-card">
+            <h3>Filter Data</h3>
+
+            <div class="filter-grid">
+              <div class="filter-group">
+                <label for="filterCardCode">Filter ID Card</label>
+                <input type="text" id="filterCardCode" placeholder="Cari ID Card, contoh PKL 25" />
+              </div>
+
+              <div class="filter-group">
+                <label for="filterStatus">Filter Keterangan</label>
+                <select id="filterStatus">
+                  <option value="">Semua Keterangan</option>
+                  <option value="Hadir">Hadir</option>
+                  <option value="Sakit">Sakit</option>
+                  <option value="Alpha">Alpha</option>
+                  <option value="Izin">Izin</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label for="filterMonth">Filter Bulan</label>
+                <input type="month" id="filterMonth" />
+              </div>
+
+              <div class="filter-group">
+                <label for="filterExactDate">Filter Tanggal Tepat</label>
+                <input type="date" id="filterExactDate" />
+              </div>
+
+              <div class="filter-group">
+                <label for="filterDateFrom">Tanggal Dari</label>
+                <input type="date" id="filterDateFrom" />
+              </div>
+
+              <div class="filter-group">
+                <label for="filterDateTo">Tanggal Sampai</label>
+                <input type="date" id="filterDateTo" />
+              </div>
+
+              <div class="filter-group filter-group-full form-group-actions">
+                <button type="button" id="applyFilterBtn" class="btn-enter magnetic">Terapkan Filter</button>
+                <button type="button" id="resetFilterBtn" class="btn-soft magnetic">Reset Filter</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="filter-card">
+            <h3>Ringkasan</h3>
+            <div class="toolbar-left">
+              <span class="badge-info" id="activeCardBadge">ID aktif: -</span>
+              <span class="badge-info" id="dataCount">Total data: 0</span>
+              <span class="badge-info" id="filteredCount">Data tampil: 0</span>
+            </div>
+
+            <p class="print-note" style="margin-top:16px;">
+              Filter tanggal dan keterangan sekarang berjalan pada data tabel dan hasil cetak/PDF.
+            </p>
+          </div>
+        </div>
+
+        <div class="toolbar reveal delay-4 print-hide">
+          <div class="toolbar-left">
+            <span class="badge-info" id="printFilterInfo">Filter aktif: Semua data</span>
+          </div>
+          <div class="toolbar-right">
+            <button type="button" id="exportJsonBtn" class="btn-soft magnetic">Export JSON</button>
+            <button type="button" id="copyJsonBtn" class="btn-soft magnetic">Copy JSON</button>
+            <button type="button" id="printPdfBtn" class="btn-enter magnetic">Cetak / PDF</button>
+            <a href="index.html" class="btn-soft magnetic">Kembali</a>
+          </div>
+        </div>
+
+        <div class="table-container reveal delay-5">
+          <div class="print-header" id="printHeader">
+            <h2 class="print-title">ABSENSI MAGANG</h2>
+            <div class="print-identity" id="printIdentity">
+              <p><strong>Nama:</strong> <span id="printStudentName">-</span></p>
+              <p><strong>NIM:</strong> <span id="printStudentNim">-</span></p>
+              <p><strong>Jurusan:</strong> <span id="printStudentMajor">-</span></p>
+              <p><strong>ID Card:</strong> <span id="printCardCode">-</span></p>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table class="office-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>ID Card</th>
+                  <th>Hari ke-</th>
+                  <th>Tanggal</th>
+                  <th>Keterangan</th>
+                  <th>Dibuat</th>
+                  <th class="table-action-col print-hide">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="print-footer" id="printFooter">
+            Dicetak pada: <span id="printTimestamp">-</span>
+          </div>
+        </div>
+
+        <div class="json-preview reveal delay-6 print-hide">
+          <div class="json-header">
+            <h3>Preview JSON</h3>
+          </div>
+          <pre id="jsonOutput">[]</pre>
+        </div>
+      </div>
+
+      <div class="corner-dot dot-1"></div>
+      <div class="corner-dot dot-2"></div>
+      <div class="corner-dot dot-3"></div>
+      <div class="corner-dot dot-4"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
